@@ -5,26 +5,69 @@ import seaborn as sns
 import requests
 import os 
 
-api_key = 'eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyIjoiNjk5NmQxNmVjNGRlMzVjYTMxMDNhMTg0IiwidGltZSI6MTc3MTQ5MTc1Ni40Mjc4MTE0fQ.MLYjGNexIinxjtlYtSwa2p0pRaYkjh2XbiQsHEXMA7KcUvPllOSFEpjcPMBu11bdcgxjy8ANqI4Wu_qGzJaXsw'
-headers = {
-    'content-language': 'fr-fr',
-    'content-length': '33',
-    'content-type': 'application/json'
-}
-#response = requests.get("https://equipements.sports.gouv.fr/api/explore/v2.1/catalog/datasets/data-es/records/?offset=0", headers=headers)
-response2 = requests.get("https://equipements.sports.gouv.fr/api/explore/v2.1/catalog/datasets/data-es/exports/csv?delimiter=%3B&list_separator=%2C&quote_all=false&with_bom=true&apikey=eyJhbGciOiJIUzUxMiJ9.eyJ1c2VyIjoiNjk5NmQxNmVjNGRlMzVjYTMxMDNhMTg0IiwidGltZSI6MTc3MTQ5MTc1Ni40Mjc4MTE0fQ.MLYjGNexIinxjtlYtSwa2p0pRaYkjh2XbiQsHEXMA7KcUvPllOSFEpjcPMBu11bdcgxjy8ANqI4Wu_qGzJaXsw", headers=headers)
-print(response2.status_code)
-equipements = response.json()
-equipements_df = equipements['results']
+culture_df = pd.read_excel('ProjetEnglobantECE/Datasets/basilic.xlsx')
+
+colonnes_a_garder = [
+    'Nom',
+    'Code_Postal',
+    'libelle_geographique',
+    'code_insee',
+    'Type_equipement_ou_lieu',
+    'Region',
+    'Adresse_postale',
+    'Departement'
+]
 
 
-culture = pd.read_excel('ProjetEnglobant/basilic.xlsx')
-revenu = pd.read_excel('ProjetEnglobant/revenuFR.xlsx')
+# Affichage nombre de lignes et de colonnes, types de données et valeurs manquantes
+print(f"Number of rows : {culture_df.shape[0]}")
+print(f"Number of columns : {culture_df.shape[1]}")
+culture_df.dtypes 
 
-cultureDF = culture[['Code_Postal', 'libelle_geographique', 'Type_equipement_ou_lieu', 'Region', 'Domaine', 'Sous_domaine', 'Departement', 'N_Departement', 'Latitude', 'Longitude']]
-cultureDF.dropna(subset=['Code_Postal'])
-filtered_cultureDF = cultureDF[cultureDF['Type_equipement_ou_lieu'].isin(['Bibliothèque', 'Centre d\'art', 'Centre de création artistique', 'Cinéma', 'Centre de création musicale', 'Théâtre', 'Conservatoire', 'Établissement d\'enseignement supérieur', 'Librairie', 'Musée', 'Opéra', 'Papeterie et maisons de la presse', 'Centre culturel'])]
+culture_df.isnull().sum().sort_values(ascending=False)
 
-revenuDF = revenu[['Nom géographique GMS', 'Code géographique', 'Libellé géographique', 'Nbre de menages fiscaux']]
-revenuDF.dropna(subset=['Code géographique'])
+# Colonnes à garder
+culture_df = culture_df[colonnes_a_garder].copy()
+
+# Affichage des différents types d'équipements ou lieux culturels
+culture_df['Type_equipement_ou_lieu'].value_counts().sort_values(ascending=False)
+
+# Uniformisation des noms de villes par rapport à leurs arrondissements
+culture_df['libelle_geographique'] = culture_df['libelle_geographique'].replace({
+    r'^Paris \d+.*': 'Paris',
+    r'^Lyon \d+.*': 'Lyon',
+    r'^Marseille \d+.*': 'Marseille'
+}, regex=True)
+
+# Suppression des types d'équipements ou lieux culturels qui ne sont pas pertinents pour l'analyse
+types_a_supprimer = [
+    'Monument',
+    'Papeterie et maisons de la presse',
+    'Librairie',
+    'Espace protégé',
+    "Service d'archives",
+    'Lieu archéologique',
+    'Parc et jardin',
+    'Lieu de mémoire',
+    "Établissement d'enseignement supérieur"
+]
+
+culture_df = culture_df[~culture_df['Type équipement ou lieu'].isin(types_a_supprimer)]
+culture_df['Type équipement ou lieu'].value_counts()
+
+# Regroupement de certains types d'équipements ou lieux culturels similaires
+types_a_regrouper = [
+    'Centre de création artistique',
+    'Centre d\'art',
+    'Centre de création musicale',
+    'Centre culturel'
+]
+
+culture_df.loc[:,'Type équipement ou lieu'] = culture_df['Type équipement ou lieu'].replace({
+    'Centre de création artistique': 'Centre culturel',
+    'Centre d\'art': 'Centre culturel',
+    'Centre de création musicale': 'Centre culturel'
+})
+
+culture_df['Type équipement ou lieu'].value_counts()
 
