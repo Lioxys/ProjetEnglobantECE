@@ -86,6 +86,32 @@ def top_equipements(limit: int = Query(default=20, le=100)):
     df = pd.read_sql(query, engine, params={"limit": limit})
     return df.to_dict(orient="records")
 
+@app.get("/analyses/score-culturel")
+def score_culturel(limit: int = Query(default=20, le=100)):
+    query = """
+        SELECT 
+            c.code_insee,
+            c.nom_commune,
+            c.region,
+            COUNT(e.id) AS nb_equipements,
+            i.p18_pop,
+            i.dec_med18,
+            ROUND(
+                (COUNT(e.id) * 10000.0 / NULLIF(i.p18_pop, 0))
+                + (i.dec_med18 / 1000),
+                2
+            ) AS score_culturel
+        FROM communes c
+        JOIN indicateurs_commune i
+            ON c.code_insee = i.code_insee
+        LEFT JOIN equipements_culturels e
+            ON c.code_insee = e.code_insee
+        GROUP BY c.code_insee, c.nom_commune, c.region, i.p18_pop, i.dec_med18
+        ORDER BY score_culturel DESC
+        LIMIT %(limit)s
+    """
+    df = pd.read_sql(query, engine, params={"limit": limit})
+    return df.to_dict(orient="records")
 
 @app.get("/indicateurs/ratio-equipements-population")
 def ratio_equipements_population(limit: int = Query(default=20, le=100)):
